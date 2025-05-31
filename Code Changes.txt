@@ -1,0 +1,115 @@
+From Dr. Hamed 4/8/2019:
+Use 1 as cost function
+Remove inequalities (Cineq = 0)
+elimiate GRF inequality constraints
+remove all feasibility conditions, look for periodicity first
+get rid of forward speed (0.8m/s) (comment out)
+when it converges, use this as initial condition, and add inequality conditions
+alpha components b/w -1 and 1
+choose anthropromorphic for initial position guess
+if you cannot find periodicity, there is a bug in the code.
+first try to find a gait.
+should work with full order model
+lower gains first
+full order model should converge in 5 minutes
+check for bugs
+
+Dr. Hamed 4/9/19:
+Use q*,x* for walking multiple steps
+
+4/2/19
+-Got rid of dz_plus in cineq
+-Got rid of dz_plus in impact_map, extract_optimization_variables, etc.
+-Got rid of loading from .mat file for initial conditions; X0 is now 0.3*randn()
+-Changed disctrete_time_dynamics to output qs_plus, dqs_plus, F_imp
+-Changed indexes in discrete_time_dynamics
+-Changed the lower/upper bounds of alpha to be [qt_min;qf_min;qt_min;qf_min] (4-D instead of 6-D)
+-Changed nX to be 4*M instead of 6*M, results in lower dimension of X vector
+-changed normal_controlled_variables to have 4 controlled variables, 5 DoF
+-changed dimensions of vectors in solve_stance_ODE such that N=5; m=4; dim(GRF) = 2; (planar)
+-Changed calculation of phasing variable, **scaled phasing variable calculation was already correct
+-Changed lower/upper bounds on alpha have 4 total; one for each controlled variable
+-Changed decision variable vector X to have dim = 14. (2N+m)
+-Added symbolic function to calculate task space velocities (mainly for swing leg-end velocity, used in ODE solver)
+-Added symbolic functions to calculate Extended Coriolis/Centrifugal, Extended Gravity, Extended Input matrices
+-Changed the relabeling matrix in discrete_time_dyn.m
+-Got rid of relabeling in extract_optimization_variables (since it was added into discrete_time_dyn.m)
+-Changed the indexes of the vectorization of middle columns of a such that a_vec = p(11:end) (previously P(19:end))
+-Changed the bounds of alpha. There are two middle coefficients of alpha, because alpha has M+1 elements. 
+ NOTE:
+ The decision  variables are defined as such: X = [q;dq;a_middle_1;alpha_middle_2] 
+ therefore there is no bezier polynomial associated with the torso angle/velocity, as that joint is unactuated.
+-added robot_params as an imput argument to the solve_stance_ODE function
+-changed indexes in normal_controller so that the state vector x is parsed correctly
+-added robot_params as an input argument to normal_controller, stance_phase_dynamic_terms,stance_phase_dynamics
+-changed definition of derivative of state vector in stance_closed_loop_dynamics to be dx = [dq; -inv(D)*(B-u*H)]; (removed lambda..I think lambda is for reducing numerical errors)
+-changed stance_phase_events to use forwardKinematics.m in calculating height of swing leg-end
+-changed the code in normal_controller so that the control input u is calculated the same way as in the three link walker example
+-Attempted to rewrite stance_phase_dynamics.m using the equations from the lecture notes
+-Successfully(?) rewrote stance_phase_dynamics.m using lecture notes equations, changed the indexes of ddq to work in solve_stance_ODE
+-Changed solve_stance_ODE so that it would use forwardKinematics instead of the Cfcn's
+
+
+*completely rewrote/replaced impact_map.m, normal_controller.m, stance_phase_dynamic_terms.m, stance_closed_loop_dynamics.m, stance_phase_dynamics.m
+
+**Note: Changes listed under 4/2/19 only reflect about half the changes I actually made, there are many more...
+
+4/3/19
+-re-implemented epsilon in control law calculation (still has poorly conditioned matrices, might just be a problem with the initial guess)
+-changed the GRF calculation in the constraints function to be 2-dimensional
+-Removed the inequality constraints associated with a 3-dimensional robot
+-Changed definintion of phasing variable to match forward kinematics defined in HW1: theta = 3*pi/2 + q41/2 - q1 - q31 (ground to virtual leg, CW positive)
+-Fixed indexes in discrete_time_dyn to match state vector of 5-link walker (previously unchanged from 3-link..)
+-Changed initial condition vector X0 to fmincon to be approximately on the guard
+
+4/4/19
+-removed warnings for ODE tolerances not being met
+-Defined an output function to save each iteration of the solver; save('fmincon_x.mat','x',f(x),max constraint)
+-switched solver to ode15s in hopes of improving performance
+-checked equality constraints, seems to be correct
+-changed definition of state derivative to be [dq; -inv(D)*(-B*u+H)] (it was very wrong before.....) **This change sped up simulations by 10000%
+-changed solver back to ode113, seems to work faster
+-fixed the definition of the limits for alpha so that they match the definition of the joint state vector
+-Changed the way that the solver determines if the GRF is in the positive y direction (changed to Cineq = [Cineq; F_min_v - min(F_stance(2,:)]; from %Cineq = [Cineq; F_min_v + max(-F_stance(2,:))];)
+-Changed the way the solver determines if swing leg-end reaches the ground (Cineq = [Cineq; min(p_swing(2,:))]; previously [Cineq; max(-p_swing(2,:))]
+-Changed the cost function: changed if 0 to if 1
+
+
+4/5/19
+-rewrote the cost function according to the formula in the notes, removed unecessary variables
+-changed starting position of torso to be -30 degrees (-0.5236 rad) instead of 330 degrees to meet joint limit constriants
+-added more randomness to the selection of X0 so it's less likely to start in the same exact place
+-wrote a script to animate the solver ODE results to see what the robot is doing
+
+4/6/19
+-changed animation script so that it can be run on the same computer (kind of buggy, crashes the solver sometimes)
+-changed switching event so that instead of looking at scaled phasing variable, it looks at x-position of swing leg
+-changed solver back to ODE15s
+-changed velocity limits from +/-80 rad/s to +/-120 deg/s
+-changed initial guess to one with a straighter torso
+-significantly narrowed joint limits
+
+4/8/19
+-removed some randomness in the start conditions, set bezier coefficients to be b/w -1 and 1
+-set J=1 in const function
+-Removed inequality constraints, changed to be only checking for periodicity (trying to find a feasible gait before optimizing it)
+-reduced gains by half
+-solve_stance_ODE solves from xs_plus (post impact) up to 
+-changed t_span in solve_stance_ODE.m to [0 2]
+-put back in the joint limiting inequality constraints
+-added in a constraint for minimum hip height of 0.2m
+-found a gait that works with all constraits removed, t-span = [0 10], slowly added back constraints
+-found that stance phase GRF feasibility causes problems! (impact GRF is okay)
+-tried lowering max allowed torque to improve stance GRF's, working slowly...
+
+-look for gait where stance leg starts a little farther back
+-try finding another gait
+
+4/10/19
+-flipped sign of jacobian in stance_phase_dynamics...now all constraints are met
+-removed J=1 in cost function
+
+**Note: The values you shoud extract from the optimization are a_matrix and Xs_minus 
+
+TODO:
+

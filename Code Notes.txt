@@ -1,0 +1,67 @@
+From Dr. Hamed 4/8/2019:
+Use 1 as cost function
+Remove inequalities (Cineq = 0)
+elimiate GRF inequality constraints
+remove all feasibility conditions, look for periodicity first
+get rid of forward speed (0.8m/s) (comment out)
+
+when it converges, use this as initial condition, and add inequality conditions
+alpha components b/w -1 and 1
+choose anthropromorphic for initial position guess
+
+if you cannot find periodicity, there is a bug in the code.
+
+first try to find a gait.
+should work with full order model
+lower gains first
+
+
+full order model should converge in 5 minutes
+check for bugs
+
+
+
+stance_phase_events.m:
+checks variable "value", when this is equal to 0 (and is decreasing), the event triggers. The value is set to be the z-height of the stance leg end when s>0.9.
+
+Nonlinear_Cost_MotionPlanning.m:
+
+-Extracts the optimization variables from the input vector p (not explicitly defined in code, passed anonymously between the fmincon, cost function, and constraint function)
+	**extract_optimization_variables.m
+	-Xs_minus is equal to X0 (it should lie on the guard, according to equality constraints in later function.) Xs_minus consists of [q-;dq-] and for Atrias there are 9 joints in stance 	phase. (5 for RABBIT!)
+	-Compute the value of Xs_plus by passing q-,dq- to the impact map, relabeling? from state_symmetry_matrices (?)
+	   **impact_map.m; E is the extended jacobian matrix of the swing leg-end, D is the extended mass inertia matrix
+******need to figure out how relabeling/symmetry matrices work(?)
+	-calculate initial/final phasing variables
+	-calculate scaled phasing variables and their derivatives
+	-calculate the coefficients of the alpha matrix for the first two and last two columns (a0, a1, aM-1, aM) because they are known (know what initial/final position/velocities are 	based on scaled phasing variables, see notes!)
+	-set the middle coefficients of the a vector as the last part of the p-vector (estabilshes these coefficients as design variables)
+
+-Solves the stance ODE using Xs_plus as IC, defines switching event as stance_phase events.m (**see notes above**)
+	**solve_stance_ODE.m
+	-Calls ode113, using stance_closed_loop_dynamics.m as the f(x). 
+	-After calculating x vector (state trajectories), create new vectors to store and process this inforation so that it can be used. n=length(t), for k=1:n store data in specified 	vectors
+	-Inside the for loop, solve the forward kinematics given the joint states contained in x. Also find the joint velocities, and give swing leg end its own pos/vel variables for later 	checking
+-Squares(?) and Integrates the calculated input torque profile over time duration of one step (for k=1:length(t_stance)-1) to calculate the value of the cost function.
+******Need to figure out exactly how cost function is calculated. Takes max value of u(?) and doesn't square it(?)
+
+
+Nonlinear_Constraints_MotionPlanning.m:
+
+-Extracts optimization variables (see above)
+-Solves Stance ODE (see above)
+-Defines Cineq as a vector, adds elements to this vector for each inequality constraint. For the solver to end, the max value in Cineq must be <=0 (with some tolerance, maybe 1E-4)
+-Ceineq checks feasibility of joint limits, impulsive force limits, bezier matrix, strictly increasing phasing variable, velocities, torque limits, GRF values
+-Defines Ceq as a vector checking for periodicity of the positions and velocities, and that the impact happens when leg end height is 0.
+
+solve_stance_ODE.m (down the RABBIT hole...)
+-stance_closed_loop_dynamics
+  -stance_phase_dynamic_terms; %takes in q,dq, outputs mass inertia matrix, coriollis/centrifugal matrix, gravity terms vector, input matrix, projects to reduced coordinates(***zero    dynamics?***)
+  -normal_controller; %calculates commanded torque
+      -normal_outputs; %calculates normal output functions and their derivatives (time derivatives, jacobian wrt q and second order jacobian wrt q, used for calculation of lie derivatives)
+           -normal_controlled_variables; %calculates controlled variable  (virtual constraints, output functions, h0 and hd0)
+           -bezier, bezierd, beziera; %functions for calculating bezier curves, aka desired evolution of controlled variables (?)
+      -Controller_Gains; %determine kP and kD from a basic 2nd order system
+****Need to figure out what the projecting to reduced coordinates is in stance_phase_dynamic_terms.m (think it's the zero dynamics)
+
+

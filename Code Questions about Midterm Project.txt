@@ -1,0 +1,61 @@
+-We are optimizing the evolution of the zero dynamics, but all of our code from HW1 is for the full order model. How do we translate the robot dynamics of the full model into the reduced order zero dynamics?
+
+-Do we use the full 10-dim state vector as one of our decision variables? Or just the zero dynamics?
+
+-What is the projection into reduced coordinates in stance_phase_dynamic_terms.m? Is that the implementation of HZD?
+-Do we need to write a function to calculate the time derivative of the swing (or stance?) leg jacobian so that we can also do this?
+
+-What is the best strategy for choosing initial conditions (X0) for fmincon? I went through and found a good configuration of the robot (looks like good walking gait, approximately on the guard) and added some variability (X0 = X0 + rand(10,1)) but it still does not want to converge.
+
+-Reccomended joint limits? Will tightening the limits make it harder to converge?
+
+-Reccomended tolerances for ODE solver/fmincon?
+
+-Would it be okay to do a separate optimization first where we find a good set of initial conditions that results in periodicity and then use that to solve for alpha_middle?
+
+-I looked at the ODE solver results and sometimes it terminates before hitting the guard. Sometimes it terminates at t=1s. What is the reason for early termination? (Is it tolerances not being met?)
+
+
+From Dr. Hamed 4/8/2019:
+Use 1 as cost function
+Remove inequalities (Cineq = 0)
+elimiate GRF inequality constraints
+remove all feasibility conditions, look for periodicity first
+get rid of forward speed (0.8m/s) (comment out)
+
+when it converges, use this as initial condition, and add inequality conditions
+alpha components b/w -1 and 1
+choose anthropromorphic for initial position guess
+
+if you cannot find periodicity, there is a bug in the code.
+
+first try to find a gait.
+should work with full order model
+lower gains first
+
+
+full order model should converge in 5 minutes
+check for bugs
+
+
+
+
+
+Solved (I think)
+
+How to calculate the joint accelerations and GRF (2D) in the flight phase? 
+
+I think we can just always send 0 as leg (always send right leg) and implement relabeling in function for discrete dynamics. So do we need to use state_symmetry_matrices?
+
+What is the dimension of the lower/upper bounds supposed to be? What is the length of the X vector in fmincon? I know x_dot in the ODE is length 10. There are 4 actuated angles, so 4 inputs, so 4 controlled variables. Does that mean X should be 10+4 = 14 dimensional vector? WRONG. 18 dimensional b/c of 2 middle coefficients in a-vector. dim(x) = 2N + 2m
+
+
+Why are there 30 decision variables in the 3D examples? x0 is 18-dim, why is alpha 12-dim? *because there are two middle coefficients in alpha and 6 actuated angles
+Why does a_middle have two columns? *because there are M+1 coefficients in alpha, four are known
+
+
+Previously x state vector was 18 dimensional, for 9 joint angles. How many of those were absolue angles/how many shape variables? **6 actuated angles
+
+
+Do we need to set position bounds for un-actuated angles? (torso angle) **probably yes
+

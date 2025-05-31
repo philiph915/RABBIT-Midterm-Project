@@ -1,0 +1,8 @@
+How to run the code:
+
+1) Type restoredefaultpath into the Command Window
+2) Open and run setpath.m
+3) To run the optimization, open MAIN_motion_planning_optimization.m and click run. The optimization should only take a few minutes to converge. If it takes a long time, try setting the cost function = 1 to speed things up. (Uncomment line 61 in Nonlinear_Cost_MotionPlanning.m)
+4) To see 20 steps of the optimal gait, run Closed_loop_sim_Optimal_Gait.m
+5) To see the robot take 20 steps with an initial condition off the optimal boundary conditions, run Closed_loop_sim_Offset.m 
+6) Note from the phase portraits that the optimal gait is in fact stable. 
